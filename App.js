@@ -31,12 +31,18 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [timeLeft, setTimeLeft] = useState(SECONDS_PER_QUESTION);
   const [error, setError] = useState(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-  useEffect(() => {
+  function loadCategories() {
+    setCategoriesLoading(true);
+    setError(null);
     fetchCategories()
       .then(setCategories)
-      .catch(() => setError('تعذر تحميل الفئات، تأكد من الاتصال بالإنترنت'));
-  }, []);
+      .catch(() => setError('تعذر تحميل الفئات، تأكد من الاتصال بالإنترنت'))
+      .finally(() => setCategoriesLoading(false));
+  }
+
+  useEffect(loadCategories, []);
 
   const question = questions[index];
   const answered = selected !== null;
@@ -64,14 +70,16 @@ export default function App() {
       setTimeLeft(SECONDS_PER_QUESTION);
       setScreen('quiz');
     } catch (e) {
+      if (e.message === 'no_results') {
+        setScreen('empty');
+        return;
+      }
       setError(
-        e.message === 'no_results'
-          ? 'ما فيه أسئلة كافية لهذا الاختيار، جرب فئة أو مستوى ثاني'
-          : e.message === 'rate_limited'
+        e.message === 'rate_limited'
           ? 'طلبات كثيرة، انتظر ثواني وجرب مرة ثانية'
-          : 'تعذر تحميل الأسئلة، جرب مرة ثانية'
+          : 'تعذر تحميل الأسئلة، تأكد من الاتصال بالإنترنت'
       );
-      setScreen('menu');
+      setScreen('error');
     }
   }
 
@@ -97,9 +105,17 @@ export default function App() {
       {screen === 'menu' && (
         <ScrollView contentContainerStyle={styles.container}>
           <Text style={styles.title}>لعبة الأسئلة</Text>
-          {error && <Text style={styles.error}>{error}</Text>}
+          {error && (
+            <>
+              <Text style={styles.error}>{error}</Text>
+              <Pressable style={styles.secondary} onPress={loadCategories}>
+                <Text style={styles.primaryText}>إعادة المحاولة</Text>
+              </Pressable>
+            </>
+          )}
 
           <Text style={styles.label}>الفئة</Text>
+          {categoriesLoading && <ActivityIndicator color="#fff" />}
           <View style={styles.chips}>
             <Chip label="الكل" active={category === undefined} onPress={() => setCategory(undefined)} />
             {categories.map((c) => (
@@ -135,6 +151,28 @@ export default function App() {
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.muted}>جاري تحميل الأسئلة...</Text>
         </View>
+      )}
+
+      {screen === 'error' && (
+        <StateView
+          icon="⚠️"
+          title="صار خطأ"
+          message={error}
+          primaryLabel="إعادة المحاولة"
+          onPrimary={start}
+          secondaryLabel="القائمة"
+          onSecondary={() => setScreen('menu')}
+        />
+      )}
+
+      {screen === 'empty' && (
+        <StateView
+          icon="📭"
+          title="ما فيه أسئلة"
+          message="ما فيه أسئلة كافية لهذه الفئة والمستوى، جرب فئة أو مستوى ثاني"
+          primaryLabel="رجوع للقائمة"
+          onPrimary={() => setScreen('menu')}
+        />
       )}
 
       {screen === 'quiz' && question && (
@@ -198,6 +236,24 @@ export default function App() {
   );
 }
 
+function StateView({ icon, title, message, primaryLabel, onPrimary, secondaryLabel, onSecondary }) {
+  return (
+    <View style={styles.center}>
+      <Text style={styles.stateIcon}>{icon}</Text>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.stateMessage}>{message}</Text>
+      <Pressable style={styles.primary} onPress={onPrimary}>
+        <Text style={styles.primaryText}>{primaryLabel}</Text>
+      </Pressable>
+      {secondaryLabel && (
+        <Pressable style={styles.secondary} onPress={onSecondary}>
+          <Text style={styles.primaryText}>{secondaryLabel}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 function Chip({ label, active, onPress }) {
   return (
     <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
@@ -229,5 +285,7 @@ const styles = StyleSheet.create({
   answerText: { color: '#fff', fontSize: 17, textAlign: 'center' },
   correct: { borderColor: '#00b894', backgroundColor: '#0a4d3f' },
   wrong: { borderColor: '#ff6b6b', backgroundColor: '#5a2230' },
+  stateIcon: { fontSize: 56 },
+  stateMessage: { color: '#a0a0c0', fontSize: 16, textAlign: 'center' },
   score: { color: '#fff', fontSize: 56, fontWeight: '800' },
 });
