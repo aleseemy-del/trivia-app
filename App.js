@@ -11,7 +11,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { fetchCategories, fetchQuestions } from './api';
 
-const QUESTION_COUNT = 10;
+const QUESTION_COUNT = 5;
 const SECONDS_PER_QUESTION = 20;
 const DIFFICULTIES = [
   { value: undefined, label: 'أي مستوى' },
